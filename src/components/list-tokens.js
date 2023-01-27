@@ -17,6 +17,7 @@ import { toChecksumAddress, isValidAddress} from 'ethereumjs-util'
 import FilterResults from 'react-filter-search'
 import { ChangeType, getTokenChange, getTokenListDisplayName, updateList } from '../utils/tokenListUpdater'
 import { useStyles } from '..'
+import { useGithubAccessCodeContext } from '../index'
 
 const TokenItem = styled.section`
   display: grid;
@@ -225,7 +226,7 @@ const Required = styled.div`
   }
 `
 
-function EditModal({ token, open, handleClose, addToTokenChangesMap, tokenList, addingNewToken = true}) {
+function EditModal({ token, open, handleClose, addToTokenChangesMap, tokenList, addingNewToken = true }) {
   const [editedToken, setEditedToken] = useState(null)
   const [showRequiredMessage, setShowRequiredMessage] = useState(false)
   const addressIsValid = isValidAddress(editedToken?.address)
@@ -256,12 +257,15 @@ function EditModal({ token, open, handleClose, addToTokenChangesMap, tokenList, 
 
   const tokenListDisplayName = getTokenListDisplayName(tokenList)
 
+  const code = useGithubAccessCodeContext()
   // TODO: save state and submit token here
   const addTokenSubmit = async () => {
     if (!metRequirements) {
       setShowRequiredMessage(true)
     } else {
-      addingNewToken ? addToTokenChangesMap(editedToken, ChangeType.ADD) : addToTokenChangesMap( editedToken, ChangeType.EDIT)  
+      addingNewToken
+        ? addToTokenChangesMap(editedToken, ChangeType.ADD)
+        : addToTokenChangesMap(editedToken, ChangeType.EDIT)
       handleClose()
     }
   }
@@ -372,6 +376,15 @@ export default function Tokens({ tokens, tokenList }) {
   const [editedTokensMap, setEditedTokensMap] = useState(new Map())
   const [editToken, setEditToken] = useState(null)
   const [isEditState, setIsEditState] = useState(false)
+
+  const code = useGithubAccessCodeContext()
+  const startEditing = useCallback(() => {
+    if (!code) {
+      window.location = `https://github.com/login/oauth/authorize?scope=user&client_id=${'29dd38c567658319e197'}&redirect_uri=${'http://localhost:3000/oauth-callback'}`
+    }
+    setIsEditState(true)
+  }, [code])
+
   const handleOpen = () => setAddingNewToken(true)
   const handleClose = () => {
     setAddingNewToken(false)
@@ -404,7 +417,7 @@ export default function Tokens({ tokens, tokenList }) {
   }
 
   const onSubmitTokenChanges = () => {
-    updateList(tokenList, new Map([...addedTokensMap, ...removedTokensMap, ...editedTokensMap]))
+    updateList(tokenList, new Map([...addedTokensMap, ...removedTokensMap, ...editedTokensMap]), code)
     addedTokensMap.clear()
     removedTokensMap.clear()
     editedTokensMap.clear()
@@ -427,21 +440,30 @@ export default function Tokens({ tokens, tokenList }) {
     <ListWrapper>
       <ListHeader className="flex-between" style>
         <Title>List Tokens</Title>
-        <div style={{ display: 'flex'}}>
-          { !isEditState ?
-          <Button variant="outlined" onClick={() => setIsEditState(true)} style={{ margin: '0px 12px'}}>Edit</Button>
-          : 
-          (
-            <div> 
-              <Button variant="contained" onClick={onCancelTokenChanges} style={{ margin: '0px 12px'}}>Cancel</Button>
-              <Button variant="contained" color="primary" onClick={onSubmitTokenChanges} style={{ margin: '0px 12px'}}>Submit</Button>
+        <div style={{ display: 'flex' }}>
+          {!isEditState ? (
+            <Button variant="outlined" onClick={() => setIsEditState(true)} style={{ margin: '0px 12px' }}>
+              Edit
+            </Button>
+          ) : (
+            <div>
+              <Button variant="contained" onClick={onCancelTokenChanges} style={{ margin: '0px 12px' }}>
+                Cancel
+              </Button>
+              <Button variant="contained" color="primary" onClick={onSubmitTokenChanges} style={{ margin: '0px 12px' }}>
+                Submit
+              </Button>
             </div>
-          )
-          }
+          )}
           <Search handleChange={handleChange} value={value} setValue={setValue} />
         </div>
-        <EditModal open={shouldDisplayEditModal} token={editToken} handleClose={handleClose} 
-        addToTokenChangesMap={addToTokenChangesMap} tokenList={tokenList} addingNewToken={addingNewToken}
+        <EditModal
+          open={shouldDisplayEditModal}
+          token={editToken}
+          handleClose={handleClose}
+          addToTokenChangesMap={addToTokenChangesMap}
+          tokenList={tokenList}
+          addingNewToken={addingNewToken}
         />
       </ListHeader>
 
@@ -499,17 +521,14 @@ export default function Tokens({ tokens, tokenList }) {
                 onEditToken={() => setEditToken(token)} key={tokenKey} token={token} />
               changelistTokens.unshift(<div key={tokenKey} style={{ backgroundColor: "#C0FFA1", borderRadius: "8px", padding: "4px", margin: "8px 0px", width: "100%"}}>{listItem}</div>)
             })
-            const resultListItems =  [...changelistTokens, ...regularTokens]
+            const resultListItems = [...changelistTokens, ...regularTokens]
             if (isEditState) {
               resultListItems.unshift(<Button variant="outlined" onClick={handleOpen} 
               key="add-token-button"
               style={{ marginBottom: '16px', display: 'flex'}}> + Add Token</Button>)
             }
-            return results.length === 0
-              ? 'None found!'
-              : resultListItems
-          }
-          }
+            return results.length === 0 ? 'None found!' : resultListItems
+          }}
         />
       </TokenWrapper>
     </ListWrapper>

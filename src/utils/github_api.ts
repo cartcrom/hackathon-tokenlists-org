@@ -1,26 +1,40 @@
 import { Octokit } from '@octokit/core'
 import { createPullRequest } from './pr-plugin'
 import { Changes } from './pr-plugin/types'
+import { TokenList } from './tokenListUpdater'
 
 const MyOctokit = Octokit.plugin(createPullRequest)
-let token = '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'
-const octokit = new MyOctokit({
-  auth: token,
-})
 
-export function uploadFileApi(changes: Changes[]) {
+export function tokenListToRepoName(listName: TokenList): string {
+  switch (listName) {
+    case TokenList.UNISWAP_DEFAULT:
+      return 'default-token-list'
+    case TokenList.UNISWAP_EXTENDED:
+      return 'extended-token-list'
+    case TokenList.UNISWAP_UNSUPPORTED:
+      return 'unsupported-token-list'
+    default:
+      throw new Error('Unknown list name')
+  }
+}
 
-  octokit
+export function uploadFileApi(listName: TokenList, changes: Changes[], accessToken: string) {
+  const octokit = new MyOctokit({ auth: accessToken })
+
+  const date = new Date().toDateString();
+  const unix = Date.now() / 1000;
+
+    octokit
     .createPullRequest({
       owner: 'Uniswap',
-      repo: 'default-token-list',
-      title: 'test pr 2',
-      body: 'test',
-      head: 'test-octokit',
+      repo: tokenListToRepoName(listName),
+      title: `(test) list update - ${date}`,
+      body: '',
+      head: `list-update-${unix}`,
       base: 'main' /* optional: defaults to default branch */,
-      update: true /* optional: set to `true` to enable updating existing pull requests */,
+      update: false /* optional: set to `true` to enable updating existing pull requests */,
       forceFork: false /* optional: force creating fork even when user has write rights */,
       changes: changes,
     })
-    .then((pr) => console.log('create PR succeeded', pr?.data.number))
+    .then((pr) => pr?.url && window.open(pr.url, '_token_editor_pr'))
 }
