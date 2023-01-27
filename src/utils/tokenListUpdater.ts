@@ -38,19 +38,41 @@ export enum Chain {
   CELO = 42220,
 }
 
-export const TOKENLIST_URLS: { [key: string]: { [key: number]: string } } = {
-  [TokenList.UNISWAP_DEFAULT]: {
-    [Chain.MAINNET]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/mainnet.json',
-    //[Chain.ARBITRUM]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/arbitrum.json',
-    [Chain.POLYGON]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/polygon.json',
-    [Chain.OPTIMISM]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/optimism.json',
-    [Chain.CELO]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/celo.json',
-    [Chain.ROPSTEN]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/ropsten.json',
-    [Chain.RINKEBY]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/rinkeby.json',
-    [Chain.GOERLI]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/goerli.json',
-    [Chain.KOVAN]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/kovan.json',
-  },
-}
+  export const TOKENLIST_URLS: { [key: string]:  { [key: number]: string } } = {
+    [TokenList.UNISWAP_DEFAULT]: {
+        [Chain.MAINNET]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/mainnet.json',
+        //[Chain.ARBITRUM]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/arbitrum.json',
+        [Chain.POLYGON]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/polygon.json',
+        [Chain.OPTIMISM]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/optimism.json',
+        [Chain.CELO]:   'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/celo.json',
+        [Chain.ROPSTEN]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/ropsten.json',
+        [Chain.RINKEBY]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/rinkeby.json',
+        [Chain.GOERLI]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/goerli.json',
+        [Chain.KOVAN]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/kovan.json',
+    },
+    [TokenList.UNISWAP_EXTENDED]: {
+        [Chain.MAINNET]: 'https://raw.githubusercontent.com/Uniswap/extended-token-list/main/src/tokens/mainnet.json',
+        [Chain.ARBITRUM]: 'https://raw.githubusercontent.com/Uniswap/extended-token-list/main/src/tokens/arbitrum.json',
+        [Chain.POLYGON]: 'https://raw.githubusercontent.com/Uniswap/extended-token-list/main/src/tokens/polygon.json',
+        [Chain.OPTIMISM]: 'https://raw.githubusercontent.com/Uniswap/extended-token-list/main/src/tokens/optimism.json',
+        [Chain.CELO]:   'https://raw.githubusercontent.com/Uniswap/extended-token-list/main/src/tokens/celo.json',
+        [Chain.ROPSTEN]: 'https://raw.githubusercontent.com/Uniswap/extended-token-list/main/src/tokens/ropsten.json',
+        [Chain.RINKEBY]: 'https://raw.githubusercontent.com/Uniswap/extended-token-list/main/src/tokens/rinkeby.json',
+        [Chain.GOERLI]: 'https://raw.githubusercontent.com/Uniswap/extended-token-list/main/src/tokens/goerli.json',
+        [Chain.KOVAN]: 'https://raw.githubusercontent.com/Uniswap/extended-token-list/main/src/tokens/kovan.json',
+    },
+    [TokenList.UNISWAP_UNSUPPORTED]: {
+        [Chain.MAINNET]: 'https://raw.githubusercontent.com/Uniswap/unsupported-token-list/main/src/tokens/mainnet.json',
+        //[Chain.ARBITRUM]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/arbitrum.json',
+        [Chain.POLYGON]: 'https://raw.githubusercontent.com/Uniswap/unsupported-token-list/main/src/tokens/polygon.json',
+       // [Chain.OPTIMISM]: 'https://raw.githubusercontent.com/Uniswap/unsupported-token-list/main/src/tokens/optimism.json',
+       //[Chain.CELO]:   'https://raw.githubusercontent.com/Uniswap/unsupported-token-list/main/src/tokens/celo.json',
+        [Chain.ROPSTEN]: 'https://raw.githubusercontent.com/Uniswap/unsupported-token-list/main/src/tokens/ropsten.json',
+        [Chain.RINKEBY]: 'https://raw.githubusercontent.com/Uniswap/unsupported-token-list/main/src/tokens/rinkeby.json',
+        [Chain.GOERLI]: 'https://raw.githubusercontent.com/Uniswap/unsupported-token-list/main/src/tokens/goerli.json',
+        [Chain.KOVAN]: 'https://raw.githubusercontent.com/Uniswap/unsupported-token-list/main/src/tokens/kovan.json',
+    }        
+  }
 
 export enum ChangeType {
   EDIT,
@@ -153,12 +175,12 @@ export async function updateList(listName: TokenList, tokenChangesMap: Map<strin
           encoding: 'base64',
         },
       },
-      commit: 'test pr 2',
+      commit: `update list - ${Chain[chain]}`,
     }
     changes.push(change)
   })
 
-  uploadFileApi(changes, accessToken)
+  uploadFileApi(listName, changes, accessToken)
 }
 
 export async function fetch(tokenListName: TokenList) {
