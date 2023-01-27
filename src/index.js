@@ -5,10 +5,28 @@ import List from './pages/list'
 import Home from './pages/home'
 import Why from './pages/why'
 import * as serviceWorker from './serviceWorker'
+import { createTheme, ThemeProvider } from '@material-ui/core/styles'
 import { BrowserRouter as Router, Route, Routes, useSearchParams, useNavigate } from 'react-router-dom'
 
 const GithubAccessCodeContext = createContext()
 export const useGithubAccessCodeContext = () => useContext(GithubAccessCodeContext)
+
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#ff027a',
+      darker: '#E039DD',
+    },
+    secondary: {
+      // This is green.A700 as hex.
+      main: '#11cb5f',
+    },
+    neutral: {
+      main: '#64748B',
+      contrastText: '#fff',
+    },
+  },
+})
 
 function Login({ setGithubAccessCode }) {
   const [params] = useSearchParams()
@@ -46,16 +64,18 @@ function App() {
   }, [githubAccessCode])
 
   return (
-    <GithubAccessCodeContext.Provider value={githubAccessCode}>
-      <Router>
-        <Routes>
-          <Route exact path="/" element={<Home />} />
-          <Route path="/token-list" element={<List />} />
-          <Route path="/why" element={<Why />} />
-          <Route path="/oauth-callback" element={<Login setGithubAccessCode={setGithubAccessCode} />} />
-        </Routes>
-      </Router>
-    </GithubAccessCodeContext.Provider>
+    <ThemeProvider theme={theme}>
+      <GithubAccessCodeContext.Provider value={githubAccessCode}>
+        <Router>
+          <Routes>
+            <Route exact path="/" element={<Home />} />
+            <Route path="/token-list" element={<List />} />
+            <Route path="/why" element={<Why />} />
+            <Route path="/oauth-callback" element={<Login setGithubAccessCode={setGithubAccessCode} />} />
+          </Routes>
+        </Router>
+      </GithubAccessCodeContext.Provider>
+    </ThemeProvider>
   )
 }
 

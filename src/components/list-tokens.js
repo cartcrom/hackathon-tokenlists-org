@@ -5,8 +5,6 @@ import CopyHelper from './copy'
 import Box from '@material-ui/core/Box'
 import TextField from '@material-ui/core/TextField'
 import ClearIcon from '@material-ui/icons/Clear'
-import Select from '@material-ui/core/Select'
-import MenuItem from '@material-ui/core/MenuItem'
 import IconButton from '@material-ui/core/IconButton'
 import Button from '@material-ui/core/Button'
 import Modal from '@material-ui/core/Modal'
@@ -14,9 +12,8 @@ import { lookUpchain, lookupScanner } from '../utils/getChainId'
 
 import { toChecksumAddress } from 'ethereumjs-util'
 import FilterResults from 'react-filter-search'
-import { TokenList, updateList } from '../utils/tokenListUpdater'
-import { uploadFileApi } from '../utils/github_api'
 import { useGithubAccessCodeContext } from '../index'
+import { ChangeType, getTokenChange, getTokenListDisplayName, updateList } from '../utils/tokenListUpdater'
 
 const TokenItem = styled.section`
   display: grid;
@@ -96,7 +93,7 @@ const Chain = styled.span`
   }
 `
 
-export const ListItem = memo(function ListItem({ token, onClick }) {
+export const ListItem = memo(function ListItem({ token, onEditToken, onRemoveToken, isEditState }) {
   const scanner = lookupScanner(token.chainId)
   const tokenAddress = toChecksumAddress(token.address)
   const scannerUrl = scanner === '' ? '' : scanner + tokenAddress
@@ -143,14 +140,16 @@ export const ListItem = memo(function ListItem({ token, onClick }) {
         </a>
         <CopyHelper toCopy={token.address} />
       </TokenAddress>
-      <div style={{ display: 'flex' }}>
-        <Button variant="outlined" onClick={onClick}>
-          Edit
-        </Button>
-        <Button variant="outlined" style={{ margin: '0px 12px' }} size="medium">
-          Remove
-        </Button>
-      </div>
+      {isEditState && (
+        <div style={{ display: 'flex' }}>
+          <Button variant="outlined" onClick={onEditToken}>
+            Edit
+          </Button>
+          <Button variant="contained" style={{ margin: '0px 12px' }} onClick={onRemoveToken}>
+            Remove
+          </Button>
+        </div>
+      )}
     </TokenItem>
   )
 })
@@ -220,7 +219,7 @@ const Required = styled.div`
   }
 `
 
-function EditModal({ token, open, handleClose }) {
+function EditModal({ token, open, handleClose, addToTokenChangesMap, tokenList, addingNewToken = true }) {
   const [editedToken, setEditedToken] = useState(null)
   const [showRequiredMessage, setShowRequiredMessage] = useState(false)
   const metRequirements = editedToken?.address && editedToken?.chainId
@@ -243,20 +242,17 @@ function EditModal({ token, open, handleClose }) {
     []
   )
 
-  const [tokenList, setTokenList] = useState(TokenList.UNISWAP_DEFAULT)
-
-  const handleTokenListSelect = (event) => {
-    setTokenList(event.target.value)
-  }
+  const tokenListDisplayName = getTokenListDisplayName(tokenList)
 
   const code = useGithubAccessCodeContext()
   // TODO: save state and submit token here
-  const addTokenSubmit = () => {
+  const addTokenSubmit = async () => {
     if (!metRequirements) {
       setShowRequiredMessage(true)
     } else {
-      uploadFileApi({ test: 'hi' }, code)
-      // updateList(tokenList /** TODO: add tokenChangesMap */)
+      addingNewToken
+        ? addToTokenChangesMap(editedToken, ChangeType.ADD)
+        : addToTokenChangesMap(editedToken, ChangeType.EDIT)
       handleClose()
     }
   }
@@ -328,22 +324,27 @@ function EditModal({ token, open, handleClose }) {
           onInput={updateFunction('decimals')}
           value={editedToken?.decimals}
         />
-        <Select
-          id="token-list-select"
-          value={tokenList}
-          label="Uniswap Labs Token List"
-          onChange={handleTokenListSelect}
-        >
-          <MenuItem value={TokenList.UNISWAP_DEFAULT}>Default</MenuItem>
-          <MenuItem value={TokenList.UNISWAP_EXTENDED}>Extended</MenuItem>
-          <MenuItem value={TokenList.UNISWAP_UNSUPPORTED}>Unsupported</MenuItem>
-        </Select>
+        <TextField
+          id="readonly-token-list"
+          label="Token List"
+          defaultValue={tokenListDisplayName}
+          InputProps={{
+            readOnly: true,
+          }}
+          variant="filled"
+        />
         <div
           style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', paddingTop: '12px' }}
           onClick={() => !metRequirements && setShowRequiredMessage(true)}
         >
           {showRequiredMessage && !metRequirements && 'ChainId and address are required'}
-          <Button variant="outlined" onClick={addTokenSubmit} disabled={!metRequirements}>
+          <Button
+            variant="outlined"
+            onClick={async () => {
+              await addTokenSubmit()
+            }}
+            disabled={!metRequirements}
+          >
             Submit
           </Button>
         </div>
@@ -354,8 +355,11 @@ function EditModal({ token, open, handleClose }) {
   )
 }
 
-export default function Tokens({ tokens }) {
+export default function Tokens({ tokens, tokenList }) {
   const [addingNewToken, setAddingNewToken] = useState(false)
+  const [removedTokensMap, setRemovedTokensMap] = useState(new Map())
+  const [addedTokensMap, setAddedTokensMap] = useState(new Map())
+  const [editedTokensMap, setEditedTokensMap] = useState(new Map())
   const [editToken, setEditToken] = useState(null)
   const [isEditState, setIsEditState] = useState(false)
 
@@ -373,6 +377,21 @@ export default function Tokens({ tokens }) {
     setEditToken(null)
   }
 
+  const addToTokenChangesMap = (token, changeType) => {
+    const tokenChange = getTokenChange(changeType, token)
+    if (changeType === ChangeType.ADD) {
+      console.log('ADD TO TOKEN CHANGES MAP TYPE', changeType)
+      console.log('ADD TO TOKEN CHANGES MAP TOKEN', token)
+      setAddedTokensMap(new Map([...addedTokensMap, [tokenChange.tokenChangeKey, tokenChange.tokenChangeValue]]))
+    }
+    if (changeType === ChangeType.EDIT) {
+      setEditedTokensMap(new Map([...editedTokensMap, [tokenChange.tokenChangeKey, tokenChange.tokenChangeValue]]))
+    }
+    if (changeType === ChangeType.REMOVE) {
+      setRemovedTokensMap(new Map([...removedTokensMap, [tokenChange.tokenChangeKey, tokenChange.tokenChangeValue]]))
+    }
+  }
+
   const [value, setValue] = useState('')
   const sortedTokens = tokens.sort((a, b) => {
     return a.symbol > b.symbol ? 1 : a.symbol < b.symbol ? -1 : 0
@@ -383,9 +402,22 @@ export default function Tokens({ tokens }) {
     setValue(value)
   }
 
-  function updateToken() {
-    // Push to backend
-    setEditToken(null)
+  const onSubmitTokenChanges = () => {
+    updateList(tokenList, new Map([...addedTokensMap, ...removedTokensMap, ...editedTokensMap]))
+    addedTokensMap.clear()
+    removedTokensMap.clear()
+    editedTokensMap.clear()
+    setIsEditState(false)
+  }
+
+  const onCancelTokenChanges = () => {
+    addedTokensMap.clear()
+    removedTokensMap.clear()
+    editedTokensMap.clear()
+    console.log('added tokens map', addedTokensMap)
+    console.log('removed tokens map', removedTokensMap)
+    console.log('edited tokens map', editedTokensMap)
+    setIsEditState(false)
   }
 
   const shouldDisplayEditModal = Boolean(!!editToken || addingNewToken)
@@ -395,12 +427,30 @@ export default function Tokens({ tokens }) {
       <ListHeader className="flex-between" style>
         <Title>List Tokens</Title>
         <div style={{ display: 'flex' }}>
-          <Button variant="outlined" onClick={startEditing} style={{ margin: '0px 12px' }}>
-            Edit
-          </Button>
+          {!isEditState ? (
+            <Button variant="outlined" onClick={() => setIsEditState(true)} style={{ margin: '0px 12px' }}>
+              Edit
+            </Button>
+          ) : (
+            <div>
+              <Button variant="contained" onClick={onCancelTokenChanges} style={{ margin: '0px 12px' }}>
+                Cancel
+              </Button>
+              <Button variant="contained" color="primary" onClick={onSubmitTokenChanges} style={{ margin: '0px 12px' }}>
+                Submit
+              </Button>
+            </div>
+          )}
           <Search handleChange={handleChange} value={value} setValue={setValue} />
         </div>
-        <EditModal open={shouldDisplayEditModal} token={editToken} handleClose={handleClose} />
+        <EditModal
+          open={shouldDisplayEditModal}
+          token={editToken}
+          handleClose={handleClose}
+          addToTokenChangesMap={addToTokenChangesMap}
+          tokenList={tokenList}
+          addingNewToken={addingNewToken}
+        />
       </ListHeader>
 
       <TokenWrapper>
@@ -418,18 +468,86 @@ export default function Tokens({ tokens }) {
           value={value}
           data={sortedTokens}
           renderResults={(results) => {
-            let resultListItems = results.map((data, i) => (
-              <ListItem onClick={() => setEditToken(data)} key={i} token={data} />
-            ))
+            let changelistTokens = []
+            let regularTokens = []
+            results.forEach((data) => {
+              const tokenKey = data.chainId + '_' + data.address
+              const listItem = (
+                <ListItem
+                  isEditState={isEditState}
+                  onRemoveToken={() => addToTokenChangesMap(data, ChangeType.REMOVE)}
+                  onEditToken={() => setEditToken(data)}
+                  key={tokenKey}
+                  token={data}
+                />
+              )
+
+              if (removedTokensMap.has(tokenKey)) {
+                changelistTokens.push(
+                  <div
+                    style={{
+                      backgroundColor: '#FF8080',
+                      borderRadius: '8px',
+                      padding: '4px',
+                      margin: '8px 0px',
+                      width: '100%',
+                    }}
+                  >
+                    {listItem}
+                  </div>
+                )
+              } else if (editedTokensMap.has(tokenKey)) {
+                changelistTokens.push(
+                  <div
+                    style={{
+                      backgroundColor: '#FAFA72',
+                      borderRadius: '8px',
+                      padding: '4px',
+                      margin: '8px 0px',
+                      width: '100%',
+                    }}
+                  >
+                    {listItem}
+                  </div>
+                )
+              } else {
+                regularTokens.push(listItem)
+              }
+            })
+            Array.from(addedTokensMap.keys()).forEach((tokenKey) => {
+              const token = addedTokensMap.get(tokenKey).newTokenInfo
+              const listItem = (
+                <ListItem
+                  isEditState={isEditState}
+                  onRemoveToken={() => addToTokenChangesMap(token, ChangeType.REMOVE)}
+                  onEditToken={() => setEditToken(token)}
+                  key={tokenKey}
+                  token={token}
+                />
+              )
+              changelistTokens.unshift(
+                <div
+                  style={{
+                    backgroundColor: '#C0FFA1',
+                    borderRadius: '8px',
+                    padding: '4px',
+                    margin: '8px 0px',
+                    width: '100%',
+                  }}
+                >
+                  {listItem}
+                </div>
+              )
+            })
+            const resultListItems = [...changelistTokens, ...regularTokens]
             if (isEditState) {
               resultListItems.unshift(
-                <Button variant="outlined" onClick={handleOpen}>
+                <Button variant="outlined" onClick={handleOpen} style={{ marginBottom: '16px', display: 'flex' }}>
                   {' '}
                   + Add Token
                 </Button>
               )
             }
-            /** add ADD TOKEN ROW here */
             return results.length === 0 ? 'None found!' : resultListItems
           }}
         />
