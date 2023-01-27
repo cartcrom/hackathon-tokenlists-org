@@ -5,7 +5,7 @@ import { TokenList } from './tokenListUpdater'
 
 const MyOctokit = Octokit.plugin(createPullRequest)
 
-function tokenListToRepoName(listName: TokenList): string {
+export function tokenListToRepoName(listName: TokenList): string {
   switch (listName) {
     case TokenList.UNISWAP_DEFAULT:
       return 'default-token-list'
@@ -21,15 +21,16 @@ function tokenListToRepoName(listName: TokenList): string {
 export function uploadFileApi(listName: TokenList, changes: Changes[], accessToken: string) {
   const octokit = new MyOctokit({ auth: accessToken })
 
-  const currIsoTime = new Date().toISOString();
+  const date = new Date().toDateString();
+  const unix = Date.now() / 1000;
 
     octokit
     .createPullRequest({
       owner: 'Uniswap',
       repo: tokenListToRepoName(listName),
-      title: `(test) tokenlist update - ${currIsoTime}`,
+      title: `(test) list update - ${date}`,
       body: '',
-      head: `list-update-${currIsoTime}`,
+      head: `list-update-${unix}`,
       base: 'main' /* optional: defaults to default branch */,
       update: false /* optional: set to `true` to enable updating existing pull requests */,
       forceFork: false /* optional: force creating fork even when user has write rights */,

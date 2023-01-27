@@ -1,8 +1,8 @@
 import { TokenInfo } from '@uniswap/token-lists'
 import axios from 'axios'
-import { uploadFileApi } from './github_api'
+import { tokenListToRepoName, uploadFileApi } from './github_api'
 import { Changes } from './pr-plugin/types'
-
+import semver from 'semver'
 export enum TokenList {
   UNISWAP_DEFAULT,
   UNISWAP_EXTENDED,
@@ -41,7 +41,7 @@ export enum Chain {
   export const TOKENLIST_URLS: { [key: string]:  { [key: number]: string } } = {
     [TokenList.UNISWAP_DEFAULT]: {
         [Chain.MAINNET]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/mainnet.json',
-        //[Chain.ARBITRUM]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/arbitrum.json',
+        [Chain.ARBITRUM]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/arbitrum.json',
         [Chain.POLYGON]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/polygon.json',
         [Chain.OPTIMISM]: 'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/optimism.json',
         [Chain.CELO]:   'https://raw.githubusercontent.com/Uniswap/default-token-list/main/src/tokens/celo.json',
@@ -86,6 +86,7 @@ export interface TokenChange {
 }
 
 const chainToTokenArrayMap = new Map<number, Map<string, TokenInfo>>()
+const chainsToUpdate = new Set<number>()
 
 function getTokenCompositeKey(chainId: number, address: String) {
   return `${chainId}_${address.toLowerCase()}`
@@ -118,18 +119,23 @@ function parseTokenCompositeKey(key: string) {
 
 // tokenChangesMap: chainid_tokenaddress -> TokenInfo
 export async function updateList(listName: TokenList, tokenChangesMap: Map<string, TokenChange>, accessToken: string) {
-   
-    await fetch(listName)
+    tokenChangesMap.forEach((change, key) => {
+        key = key.toLowerCase()
+        const { chainId } = parseTokenCompositeKey(key)
+        chainsToUpdate.add(chainId)
+    })
 
+    await fetch(listName)
+    let didRemoveOrEdit = false
     tokenChangesMap.forEach((change, key) => {
         key = key.toLowerCase()
         const tokenMap = chainToTokenArrayMap.get(parseTokenCompositeKey(key).chainId)
-        console.log(tokenMap)
 
         if (change.actionType === ChangeType.REMOVE) {
             if(!tokenMap?.has(key)) {
                 throw new Error(`Token ${key} not found in list`)
             }
+            didRemoveOrEdit = true
             tokenMap.delete(key)
         } else if (change.actionType === ChangeType.ADD) {
             if(tokenMap?.has(key)) {
@@ -138,7 +144,9 @@ export async function updateList(listName: TokenList, tokenChangesMap: Map<strin
             if(!change.newTokenInfo) {
                 throw new Error(`missing newTokenInfo for token ${key}`)
             }
-            tokenMap!.set(key, change.newTokenInfo)
+            const {extensions, ...tokenWithoutExtensions} = change.newTokenInfo
+
+            tokenMap!.set(key, tokenWithoutExtensions)
         } else if (change.actionType === ChangeType.EDIT) {
             if(!tokenMap?.has(key)) {
                 throw new Error(`Token ${key} not found in list`)
@@ -146,7 +154,10 @@ export async function updateList(listName: TokenList, tokenChangesMap: Map<strin
             if(!change.newTokenInfo) {
                 throw new Error(`missing newTokenInfo for token ${key}`)
             }
-            tokenMap!.set(key, change.newTokenInfo)
+            const {extensions, ...tokenWithoutExtensions} = change.newTokenInfo
+
+            didRemoveOrEdit = true
+            tokenMap!.set(key, tokenWithoutExtensions)
         }
     })
     const chainToUpdatedTokensMap = new Map<Chain, TokenInfo[]>()
@@ -155,12 +166,13 @@ export async function updateList(listName: TokenList, tokenChangesMap: Map<strin
             address: token.address.toLowerCase()}}))
     })
 
-  console.log(chainToTokenArrayMap)
   const chainToTokenInfoMap = new Map<Chain, TokenInfo[]>()
   chainToTokenArrayMap.forEach((tokenMap, chain) => {
     chainToTokenInfoMap.set(chain, Array.from(tokenMap.values()))
   })
   const changes: Changes[] = []
+  const str = JSON.stringify((await updateVersionAndGetPackageFile(listName, didRemoveOrEdit)), null, 2)
+  const packageJsonObjEncoded = unescape(encodeURIComponent(str))
 
   chainToTokenInfoMap.forEach((tokenInfo, chain) => {
     const fileName: string = getFileName(chain)
@@ -180,6 +192,15 @@ export async function updateList(listName: TokenList, tokenChangesMap: Map<strin
     changes.push(change)
   })
 
+  changes.push({
+    files: {
+      "package.json": {
+        content: packageJsonObjEncoded,
+        encoding: 'utf-8',
+      },
+    },
+    commit: `update list version`,
+  })
   uploadFileApi(listName, changes, accessToken)
 }
 
@@ -187,12 +208,14 @@ export async function fetch(tokenListName: TokenList) {
   const urls = TOKENLIST_URLS[tokenListName]
   const promises = []
   for (const chainId of Object.keys(urls)) {
+    if(chainsToUpdate.has(parseInt(chainId))) {
     const url = urls[parseInt(chainId)]
     promises.push(
       axios.get(url).then((response) => {
         return { response: response.data, chain: parseInt(chainId) }
       })
     )
+    }
   }
   const result = await Promise.all(promises)
   result.forEach((res) => {
@@ -203,7 +226,6 @@ export async function fetch(tokenListName: TokenList) {
     })
     chainToTokenArrayMap.set(res.chain, tokenInfoMap)
   })
-  console.log('1')
 }
 
 export function getFileName(chain: Chain): string {
@@ -227,4 +249,14 @@ export function getFileName(chain: Chain): string {
     case Chain.ARBITRUM:
       return 'arbitrum.json'
   }
+}
+
+export async function updateVersionAndGetPackageFile(tokenListName: TokenList, didRemoveOrEdit: boolean){
+    const packageFileUrl = `https://raw.githubusercontent.com/Uniswap/${tokenListToRepoName(tokenListName)}/main/package.json`
+    let packageJsonObj = (await axios.get(packageFileUrl)).data
+     packageJsonObj = {
+        ...packageJsonObj,
+        version: didRemoveOrEdit ? semver.inc(packageJsonObj.version, 'major') : semver.inc(packageJsonObj.version, 'minor'),
+    }
+    return packageJsonObj
 }
