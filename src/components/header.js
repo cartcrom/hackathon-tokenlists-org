@@ -1,8 +1,13 @@
-import React from 'react'
+import React, { useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 
 import logo from '../logo/color.png'
+
+import OAuth2Login from 'react-simple-oauth2-login'
+
+const onSuccess = (response) => console.log(response)
+const onFailure = (response) => console.error(response)
 
 const StyledHeader = styled.header`
   display: flex;
@@ -60,6 +65,14 @@ const ButtonLink = styled.a`
 `
 
 export default function Header({ back }) {
+  const onClick = useCallback(() => {
+    fetch('http://localhost:9999/my-oauth', {
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+    }).then((response) => response.json())
+  }, [])
   return (
     <StyledHeader>
       <Link style={{ display: 'flex', alignItems: 'center' }} to="/">
@@ -68,7 +81,6 @@ export default function Header({ back }) {
           Token Lists
         </span>
       </Link>
-
       <Nav>
         <a target="_blank" rel="noopener noreferrer" className="hide-small" href="http://community.tokenlists.org/">
           Community

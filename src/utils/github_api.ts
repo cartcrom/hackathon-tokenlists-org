@@ -2,13 +2,11 @@ import { Octokit } from '@octokit/core'
 import { createPullRequest } from './pr-plugin'
 
 const MyOctokit = Octokit.plugin(createPullRequest)
-let token = '<personal access token>'
-const octokit = new MyOctokit({
-  auth: token,
-})
 
-export function uploadFileApi(content: any) {
+export function uploadFileApi(content: any, accessToken: string) {
   var encoded = btoa(JSON.stringify(content))
+
+  const octokit = new MyOctokit({ auth: accessToken })
 
   octokit
     .createPullRequest({
@@ -33,5 +31,5 @@ export function uploadFileApi(content: any) {
         },
       ],
     })
-    .then((pr) => console.log(pr?.data.number))
+    .then((pr) => pr?.url && window.open(pr.url, '_token_editor_pr'))
 }

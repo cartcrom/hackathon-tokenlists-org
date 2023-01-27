@@ -16,6 +16,7 @@ import { toChecksumAddress } from 'ethereumjs-util'
 import FilterResults from 'react-filter-search'
 import { TokenList, updateList } from '../utils/tokenListUpdater'
 import { uploadFileApi } from '../utils/github_api'
+import { useGithubAccessCodeContext } from '../index'
 
 const TokenItem = styled.section`
   display: grid;
@@ -248,12 +249,13 @@ function EditModal({ token, open, handleClose }) {
     setTokenList(event.target.value)
   }
 
+  const code = useGithubAccessCodeContext()
   // TODO: save state and submit token here
   const addTokenSubmit = () => {
     if (!metRequirements) {
       setShowRequiredMessage(true)
     } else {
-      uploadFileApi({ test: 'hi' })
+      uploadFileApi({ test: 'hi' }, code)
       // updateList(tokenList /** TODO: add tokenChangesMap */)
       handleClose()
     }
@@ -356,6 +358,15 @@ export default function Tokens({ tokens }) {
   const [addingNewToken, setAddingNewToken] = useState(false)
   const [editToken, setEditToken] = useState(null)
   const [isEditState, setIsEditState] = useState(false)
+
+  const code = useGithubAccessCodeContext()
+  const startEditing = useCallback(() => {
+    if (!code) {
+      window.location = `https://github.com/login/oauth/authorize?scope=user&client_id=${'29dd38c567658319e197'}&redirect_uri=${'http://localhost:3000/oauth-callback'}`
+    }
+    setIsEditState(true)
+  }, [code])
+
   const handleOpen = () => setAddingNewToken(true)
   const handleClose = () => {
     setAddingNewToken(false)
@@ -384,7 +395,7 @@ export default function Tokens({ tokens }) {
       <ListHeader className="flex-between" style>
         <Title>List Tokens</Title>
         <div style={{ display: 'flex' }}>
-          <Button variant="outlined" onClick={() => setIsEditState(true)} style={{ margin: '0px 12px' }}>
+          <Button variant="outlined" onClick={startEditing} style={{ margin: '0px 12px' }}>
             Edit
           </Button>
           <Search handleChange={handleChange} value={value} setValue={setValue} />
