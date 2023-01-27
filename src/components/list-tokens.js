@@ -403,7 +403,7 @@ export default function Tokens({ tokens, tokenList }) {
   }
 
   const onSubmitTokenChanges = () => {
-    updateList(tokenList, new Map([...addedTokensMap, ...removedTokensMap, ...editedTokensMap]))
+    updateList(tokenList, new Map([...addedTokensMap, ...removedTokensMap, ...editedTokensMap]), code)
     addedTokensMap.clear()
     removedTokensMap.clear()
     editedTokensMap.clear()
