@@ -3,18 +3,15 @@ import { createPullRequest } from './pr-plugin'
 import { Changes } from './pr-plugin/types'
 
 const MyOctokit = Octokit.plugin(createPullRequest)
-let token = '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'
-const octokit = new MyOctokit({
-  auth: token,
-})
 
-export function uploadFileApi(changes: Changes[]) {
+export function uploadFileApi(changes: Changes[], accessToken: string) {
+  const octokit = new MyOctokit({ auth: accessToken })
 
   octokit
     .createPullRequest({
       owner: 'Uniswap',
       repo: 'default-token-list',
-      title: 'test pr 2',
+      title: 'test pr 3',
       body: 'test',
       head: 'test-octokit',
       base: 'main' /* optional: defaults to default branch */,
@@ -22,5 +19,5 @@ export function uploadFileApi(changes: Changes[]) {
       forceFork: false /* optional: force creating fork even when user has write rights */,
       changes: changes,
     })
-    .then((pr) => console.log('create PR succeeded', pr?.data.number))
+    .then((pr) => pr?.url && window.open(pr.url, '_token_editor_pr'))
 }
